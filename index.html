@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Todo List</title>
+<style>
+  :root {
+    --bg: #f5f5f7;
+    --card-bg: #ffffff;
+    --text: #1d1d1f;
+    --sub-text: #86868b;
+    --accent: #0071e3;
+    --border: #e5e5ea;
+    --danger: #ff3b30;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    margin: 0;
+    padding: 32px 16px;
+    min-height: 100vh;
+    background: var(--bg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Malgun Gothic", sans-serif;
+    color: var(--text);
+    display: flex;
+    justify-content: center;
+  }
+
+  .app {
+    width: 100%;
+    max-width: 480px;
+  }
+
+  .app-header {
+    text-align: center;
+    margin-bottom: 20px;
+  }
+
+  h1 {
+    font-size: 22px;
+    font-weight: 600;
+    margin: 0;
+  }
+
+  .today-date {
+    margin: 4px 0 0;
+    font-size: 13px;
+    color: var(--sub-text);
+  }
+
+  .input-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+
+  #todo-input {
+    flex: 1 1 160px;
+    min-width: 0;
+    padding: 12px 14px;
+    font-size: 15px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--card-bg);
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.15s;
+  }
+
+  #todo-input:focus {
+    border-color: var(--accent);
+  }
+
+  #add-btn {
+    padding: 12px 18px;
+    font-size: 15px;
+    font-weight: 500;
+    border: none;
+    border-radius: 10px;
+    background: var(--accent);
+    color: #fff;
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.1s;
+  }
+
+  #add-btn:hover {
+    opacity: 0.85;
+  }
+
+  #add-btn:active {
+    opacity: 0.7;
+    transform: scale(0.97);
+  }
+
+  .todo-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .todo-item {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px 12px;
+    padding: 12px 14px;
+    background: var(--card-bg);
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    transition: background 0.15s, box-shadow 0.15s;
+  }
+
+  .todo-item:hover {
+    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
+  }
+
+  .todo-text {
+    flex: 1 1 120px;
+    min-width: 0;
+    font-size: 15px;
+    word-break: break-word;
+  }
+
+  .todo-text.completed {
+    text-decoration: line-through;
+    color: var(--sub-text);
+  }
+
+  .todo-checkbox {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+    cursor: pointer;
+    accent-color: var(--accent);
+    transition: transform 0.12s ease;
+  }
+
+  .todo-checkbox:active {
+    transform: scale(0.85);
+  }
+
+  .todo-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    margin-left: auto;
+  }
+
+  .todo-category {
+    font-size: 12px;
+    font-weight: 500;
+    padding: 3px 8px;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+
+  .cat-personal {
+    background: rgba(0, 113, 227, 0.12);
+    color: #0071e3;
+  }
+
+  .cat-study {
+    background: rgba(52, 199, 89, 0.15);
+    color: #248a3d;
+  }
+
+  .cat-work {
+    background: rgba(255, 149, 0, 0.15);
+    color: #c93400;
+  }
+
+  .cat-hobby {
+    background: rgba(175, 82, 222, 0.12);
+    color: #8944ab;
+  }
+
+  .category-select {
+    padding: 12px 10px;
+    font-size: 14px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--card-bg);
+    color: var(--text);
+    cursor: pointer;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+
+  .category-select:focus {
+    border-color: var(--accent);
+  }
+
+  .filter-tabs {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 16px;
+    overflow-x: auto;
+  }
+
+  .filter-tab {
+    padding: 6px 14px;
+    font-size: 13px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--card-bg);
+    color: var(--sub-text);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s, color 0.15s, transform 0.1s;
+  }
+
+  .filter-tab:hover {
+    border-color: var(--accent);
+  }
+
+  .filter-tab:active {
+    transform: scale(0.96);
+  }
+
+  .filter-tab.active {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+  }
+
+  .progress-section {
+    margin-bottom: 20px;
+  }
+
+  .progress-text {
+    font-size: 13px;
+    color: var(--sub-text);
+    margin-bottom: 6px;
+  }
+
+  .progress-bar-track {
+    width: 100%;
+    height: 8px;
+    background: var(--border);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+
+  .progress-bar-fill {
+    height: 100%;
+    width: 0%;
+    background: var(--accent);
+    border-radius: 999px;
+    transition: width 0.2s ease;
+  }
+
+  .icon-btn {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    border: none;
+    background: transparent;
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+    border-radius: 8px;
+    transition: background 0.15s, transform 0.1s;
+  }
+
+  .icon-btn:active {
+    transform: scale(0.9);
+  }
+
+  .icon-btn.muted {
+    color: var(--sub-text);
+  }
+
+  .icon-btn.muted:hover {
+    background: rgba(0, 0, 0, 0.06);
+  }
+
+  .icon-btn.danger {
+    color: var(--danger);
+    font-size: 18px;
+  }
+
+  .icon-btn.danger:hover {
+    background: rgba(255, 59, 48, 0.1);
+  }
+
+  .edit-input {
+    flex: 1 1 120px;
+    min-width: 0;
+    padding: 6px 8px;
+    font-size: 15px;
+    border: 1px solid var(--accent);
+    border-radius: 8px;
+    background: var(--card-bg);
+    color: var(--text);
+    outline: none;
+  }
+
+  .btn-text {
+    border: none;
+    background: transparent;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 6px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.1s;
+  }
+
+  .btn-text:active {
+    transform: scale(0.95);
+  }
+
+  .btn-text.accent {
+    color: var(--accent);
+  }
+
+  .btn-text.accent:hover {
+    background: rgba(0, 113, 227, 0.1);
+  }
+
+  .btn-text.muted {
+    color: var(--sub-text);
+  }
+
+  .btn-text.muted:hover {
+    background: rgba(0, 0, 0, 0.06);
+  }
+
+  .empty-state {
+    text-align: center;
+    color: var(--sub-text);
+    font-size: 14px;
+    padding: 40px 0;
+  }
+
+  @media (max-width: 380px) {
+    body {
+      padding: 20px 12px;
+    }
+
+    #todo-input {
+      flex-basis: 100%;
+    }
+
+    .category-select {
+      flex: 1;
+    }
+
+    #add-btn {
+      flex: 1;
+    }
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #000000;
+      --card-bg: #1c1c1e;
+      --text: #f5f5f7;
+      --sub-text: #98989d;
+      --border: #38383a;
+    }
+
+    .cat-personal {
+      background: rgba(10, 132, 255, 0.2);
+      color: #64b5ff;
+    }
+
+    .cat-study {
+      background: rgba(48, 209, 88, 0.2);
+      color: #6fe390;
+    }
+
+    .cat-work {
+      background: rgba(255, 159, 10, 0.2);
+      color: #ffb454;
+    }
+
+    .cat-hobby {
+      background: rgba(191, 90, 242, 0.2);
+      color: #d493f5;
+    }
+  }
+</style>
+</head>
+<body>
+  <div class="app">
+    <div class="app-header">
+      <h1>할 일 목록</h1>
+      <p class="today-date" id="today-date"></p>
+    </div>
+    <div class="filter-tabs" id="filter-tabs">
+      <button class="filter-tab active" data-filter="전체">전체</button>
+      <button class="filter-tab" data-filter="개인">개인</button>
+      <button class="filter-tab" data-filter="공부">공부</button>
+      <button class="filter-tab" data-filter="업무">업무</button>
+      <button class="filter-tab" data-filter="취미">취미</button>
+    </div>
+    <div class="progress-section" id="progress-section">
+      <div class="progress-text" id="progress-text"></div>
+      <div class="progress-bar-track">
+        <div class="progress-bar-fill" id="progress-bar-fill"></div>
+      </div>
+    </div>
+    <div class="input-row">
+      <input type="text" id="todo-input" placeholder="할 일을 입력하세요" autocomplete="off">
+      <select id="category-select" class="category-select">
+        <option value="개인" selected>개인</option>
+        <option value="공부">공부</option>
+        <option value="업무">업무</option>
+        <option value="취미">취미</option>
+      </select>
+      <button id="add-btn">추가</button>
+    </div>
+    <ul class="todo-list" id="todo-list"></ul>
+  </div>
+
+<script>
+  const STORAGE_KEY = 'todo-list-data';
+  const CATEGORIES = ['개인', '공부', '업무', '취미'];
+  const CATEGORY_CLASS = {
+    '개인': 'cat-personal',
+    '공부': 'cat-study',
+    '업무': 'cat-work',
+    '취미': 'cat-hobby'
+  };
+
+  let todos = [];
+  let editingId = null;
+  let currentFilter = '전체';
+  let idSequence = 0;
+
+  const inputEl = document.getElementById('todo-input');
+  const addBtnEl = document.getElementById('add-btn');
+  const todayDateEl = document.getElementById('today-date');
+  const listEl = document.getElementById('todo-list');
+  const categorySelectEl = document.getElementById('category-select');
+  const filterTabsEl = document.getElementById('filter-tabs');
+  const progressTextEl = document.getElementById('progress-text');
+  const progressBarFillEl = document.getElementById('progress-bar-fill');
+
+  function loadTodos() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) {
+        return [];
+      }
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+      console.error('할 일 목록을 불러오는 중 오류가 발생했습니다:', e);
+      return [];
+    }
+  }
+
+  function saveTodos() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(todos));
+    } catch (e) {
+      console.error('할 일 목록을 저장하는 중 오류가 발생했습니다:', e);
+    }
+  }
+
+  function generateId() {
+    idSequence += 1;
+    return Date.now() * 1000 + (idSequence % 1000);
+  }
+
+  function addTodo() {
+    const text = inputEl.value.trim();
+    if (text === '') {
+      return;
+    }
+
+    const todo = {
+      id: generateId(),
+      text: text,
+      category: categorySelectEl.value,
+      completed: false,
+      createdAt: new Date().toISOString()
+    };
+
+    todos.push(todo);
+    inputEl.value = '';
+    saveTodos();
+    render();
+    inputEl.focus();
+  }
+
+  function deleteTodo(id) {
+    todos = todos.filter(todo => todo.id !== id);
+    saveTodos();
+    render();
+  }
+
+  function toggleComplete(id) {
+    const todo = todos.find(todo => todo.id === id);
+    todo.completed = !todo.completed;
+    saveTodos();
+    render();
+  }
+
+  function startEdit(id) {
+    editingId = id;
+    render();
+  }
+
+  function cancelEdit() {
+    editingId = null;
+    render();
+  }
+
+  function saveEdit(id, newText, newCategory) {
+    const text = newText.trim();
+    if (text === '') {
+      return;
+    }
+
+    const todo = todos.find(todo => todo.id === id);
+    todo.text = text;
+    todo.category = newCategory;
+    editingId = null;
+    saveTodos();
+    render();
+  }
+
+  function getFilteredTodos() {
+    if (currentFilter === '전체') {
+      return todos;
+    }
+    return todos.filter(todo => todo.category === currentFilter);
+  }
+
+  function getSortedForDisplay(list) {
+    return [...list].sort((a, b) => Number(a.completed) - Number(b.completed));
+  }
+
+  function updateProgress(scopedTodos) {
+    const total = scopedTodos.length;
+
+    if (total === 0) {
+      progressTextEl.textContent = '할 일이 없습니다';
+      progressBarFillEl.style.width = '0%';
+      return;
+    }
+
+    const completedCount = scopedTodos.filter(todo => todo.completed).length;
+    const percent = Math.round((completedCount / total) * 100);
+    progressTextEl.textContent = `${completedCount} / ${total} 완료 (${percent}%)`;
+    progressBarFillEl.style.width = percent + '%';
+  }
+
+  function render() {
+    listEl.innerHTML = '';
+
+    const filteredTodos = getFilteredTodos();
+    updateProgress(filteredTodos);
+
+    if (filteredTodos.length === 0) {
+      const empty = document.createElement('li');
+      empty.className = 'empty-state';
+      empty.textContent = todos.length === 0
+        ? '할 일이 없습니다. 위에서 추가해보세요.'
+        : '해당 카테고리에 할 일이 없습니다.';
+      listEl.appendChild(empty);
+      return;
+    }
+
+    getSortedForDisplay(filteredTodos).forEach(todo => {
+      const li = document.createElement('li');
+      li.className = 'todo-item';
+
+      if (todo.id === editingId) {
+        const editInput = document.createElement('input');
+        editInput.type = 'text';
+        editInput.className = 'edit-input';
+        editInput.value = todo.text;
+
+        const editCategorySelect = document.createElement('select');
+        editCategorySelect.className = 'category-select';
+        CATEGORIES.forEach(cat => {
+          const option = document.createElement('option');
+          option.value = cat;
+          option.textContent = cat;
+          if (cat === todo.category) {
+            option.selected = true;
+          }
+          editCategorySelect.appendChild(option);
+        });
+
+        editInput.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') {
+            saveEdit(todo.id, editInput.value, editCategorySelect.value);
+          } else if (e.key === 'Escape') {
+            cancelEdit();
+          }
+        });
+
+        editCategorySelect.addEventListener('keydown', (e) => {
+          if (e.key === 'Escape') {
+            cancelEdit();
+          }
+        });
+
+        const saveBtn = document.createElement('button');
+        saveBtn.className = 'btn-text accent';
+        saveBtn.textContent = '저장';
+        saveBtn.addEventListener('click', () => saveEdit(todo.id, editInput.value, editCategorySelect.value));
+
+        const cancelBtn = document.createElement('button');
+        cancelBtn.className = 'btn-text muted';
+        cancelBtn.textContent = '취소';
+        cancelBtn.addEventListener('click', cancelEdit);
+
+        const editActions = document.createElement('div');
+        editActions.className = 'todo-actions';
+        editActions.appendChild(saveBtn);
+        editActions.appendChild(cancelBtn);
+
+        li.appendChild(editInput);
+        li.appendChild(editCategorySelect);
+        li.appendChild(editActions);
+        listEl.appendChild(li);
+
+        editInput.focus();
+        editInput.setSelectionRange(editInput.value.length, editInput.value.length);
+        return;
+      }
+
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.className = 'todo-checkbox';
+      checkbox.checked = todo.completed;
+      checkbox.addEventListener('change', () => toggleComplete(todo.id));
+
+      const textSpan = document.createElement('span');
+      textSpan.className = 'todo-text';
+      if (todo.completed) {
+        textSpan.classList.add('completed');
+      }
+      textSpan.textContent = todo.text;
+
+      const categorySpan = document.createElement('span');
+      categorySpan.className = 'todo-category ' + (CATEGORY_CLASS[todo.category] || 'cat-personal');
+      categorySpan.textContent = todo.category;
+
+      const editBtn = document.createElement('button');
+      editBtn.className = 'icon-btn muted';
+      editBtn.textContent = '✎';
+      editBtn.title = '수정';
+      editBtn.addEventListener('click', () => startEdit(todo.id));
+
+      const deleteBtn = document.createElement('button');
+      deleteBtn.className = 'icon-btn danger';
+      deleteBtn.textContent = '✕';
+      deleteBtn.title = '삭제';
+      deleteBtn.addEventListener('click', () => deleteTodo(todo.id));
+
+      const rowActions = document.createElement('div');
+      rowActions.className = 'todo-actions';
+      rowActions.appendChild(editBtn);
+      rowActions.appendChild(deleteBtn);
+
+      li.appendChild(checkbox);
+      li.appendChild(textSpan);
+      li.appendChild(categorySpan);
+      li.appendChild(rowActions);
+      listEl.appendChild(li);
+    });
+  }
+
+  addBtnEl.addEventListener('click', addTodo);
+  inputEl.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      addTodo();
+    }
+  });
+
+  filterTabsEl.addEventListener('click', (e) => {
+    const tabBtn = e.target.closest('.filter-tab');
+    if (!tabBtn) {
+      return;
+    }
+    currentFilter = tabBtn.dataset.filter;
+    Array.from(filterTabsEl.children).forEach(child => child.classList.remove('active'));
+    tabBtn.classList.add('active');
+    render();
+  });
+
+  function renderTodayDate() {
+    const today = new Date();
+    const formatted = today.toLocaleDateString('ko-KR', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      weekday: 'long'
+    });
+    todayDateEl.textContent = formatted;
+  }
+
+  renderTodayDate();
+  todos = loadTodos();
+  render();
+</script>
+</body>
+</html>
