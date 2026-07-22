@@ -344,6 +344,72 @@
     padding: 40px 0;
   }
 
+  .hidden {
+    display: none !important;
+  }
+
+  .auth-form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  .auth-input {
+    padding: 12px 14px;
+    font-size: 15px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--card-bg);
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.15s;
+  }
+
+  .auth-input:focus {
+    border-color: var(--accent);
+  }
+
+  .auth-submit-btn {
+    padding: 12px 18px;
+    font-size: 15px;
+    font-weight: 500;
+    border: none;
+    border-radius: 10px;
+    background: var(--accent);
+    color: #fff;
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.1s;
+  }
+
+  .auth-submit-btn:hover {
+    opacity: 0.85;
+  }
+
+  .auth-submit-btn:active {
+    opacity: 0.7;
+    transform: scale(0.97);
+  }
+
+  .auth-error {
+    min-height: 18px;
+    margin: 0;
+    font-size: 13px;
+    color: var(--danger);
+  }
+
+  .auth-switch {
+    text-align: center;
+    font-size: 13px;
+    color: var(--sub-text);
+    margin: 6px 0 0;
+  }
+
+  .logout-row {
+    text-align: center;
+    margin-top: 6px;
+  }
+
   @media (max-width: 380px) {
     body {
       padding: 20px 12px;
@@ -394,10 +460,42 @@
 </style>
 </head>
 <body>
-  <div class="app">
+  <div class="app" id="auth-view">
+    <div class="app-header">
+      <h1>할 일 목록</h1>
+    </div>
+
+    <form class="auth-form" id="login-form">
+      <input type="text" id="login-username" class="auth-input" placeholder="아이디" autocomplete="username">
+      <input type="password" id="login-password" class="auth-input" placeholder="비밀번호" autocomplete="current-password">
+      <p class="auth-error" id="login-error"></p>
+      <button type="submit" class="auth-submit-btn">로그인</button>
+    </form>
+    <p class="auth-switch" id="to-signup-row">
+      계정이 없으신가요?
+      <button type="button" class="btn-text accent" id="show-signup-btn">회원가입</button>
+    </p>
+
+    <form class="auth-form hidden" id="signup-form">
+      <input type="text" id="signup-username" class="auth-input" placeholder="아이디" autocomplete="username">
+      <input type="password" id="signup-password" class="auth-input" placeholder="비밀번호" autocomplete="new-password">
+      <input type="password" id="signup-password-confirm" class="auth-input" placeholder="비밀번호 확인" autocomplete="new-password">
+      <p class="auth-error" id="signup-error"></p>
+      <button type="submit" class="auth-submit-btn">가입하기</button>
+    </form>
+    <p class="auth-switch hidden" id="to-login-row">
+      이미 계정이 있으신가요?
+      <button type="button" class="btn-text accent" id="show-login-btn">로그인</button>
+    </p>
+  </div>
+
+  <div class="app hidden" id="todo-view">
     <div class="app-header">
       <h1>할 일 목록</h1>
       <p class="today-date" id="today-date"></p>
+      <p class="logout-row">
+        <button type="button" class="btn-text muted" id="logout-btn">로그아웃</button>
+      </p>
     </div>
     <div class="filter-tabs" id="filter-tabs">
       <button class="filter-tab active" data-filter="전체">전체</button>
@@ -433,6 +531,10 @@
   const SUPABASE_ANON_KEY = 'sb_publishable_c3nPAJzcSQUiviEWunrerg_dOZdlso-';
   const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   const TABLE_NAME = 'todo_tbl';
+
+  // 로그인/회원가입은 아직 Supabase와 연동하지 않고 localStorage로만 관리합니다.
+  const USERS_KEY = 'todo-app-users';
+  const SESSION_KEY = 'todo-app-current-user';
   const CATEGORIES = ['개인', '공부', '업무', '취미'];
   const CATEGORY_CLASS = {
     '개인': 'cat-personal',
@@ -453,6 +555,134 @@
   const filterTabsEl = document.getElementById('filter-tabs');
   const progressTextEl = document.getElementById('progress-text');
   const progressBarFillEl = document.getElementById('progress-bar-fill');
+
+  const authViewEl = document.getElementById('auth-view');
+  const todoViewEl = document.getElementById('todo-view');
+  const loginFormEl = document.getElementById('login-form');
+  const loginUsernameEl = document.getElementById('login-username');
+  const loginPasswordEl = document.getElementById('login-password');
+  const loginErrorEl = document.getElementById('login-error');
+  const signupFormEl = document.getElementById('signup-form');
+  const signupUsernameEl = document.getElementById('signup-username');
+  const signupPasswordEl = document.getElementById('signup-password');
+  const signupPasswordConfirmEl = document.getElementById('signup-password-confirm');
+  const signupErrorEl = document.getElementById('signup-error');
+  const toSignupRowEl = document.getElementById('to-signup-row');
+  const toLoginRowEl = document.getElementById('to-login-row');
+  const showSignupBtnEl = document.getElementById('show-signup-btn');
+  const showLoginBtnEl = document.getElementById('show-login-btn');
+  const logoutBtnEl = document.getElementById('logout-btn');
+
+  function loadUsers() {
+    try {
+      const raw = localStorage.getItem(USERS_KEY);
+      if (!raw) {
+        return [];
+      }
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+      console.error('회원 목록을 불러오는 중 오류가 발생했습니다:', e);
+      return [];
+    }
+  }
+
+  function saveUsers(users) {
+    try {
+      localStorage.setItem(USERS_KEY, JSON.stringify(users));
+    } catch (e) {
+      console.error('회원 목록을 저장하는 중 오류가 발생했습니다:', e);
+    }
+  }
+
+  function showSignupForm() {
+    loginErrorEl.textContent = '';
+    signupErrorEl.textContent = '';
+    loginFormEl.classList.add('hidden');
+    toSignupRowEl.classList.add('hidden');
+    signupFormEl.classList.remove('hidden');
+    toLoginRowEl.classList.remove('hidden');
+  }
+
+  function showLoginForm() {
+    loginErrorEl.textContent = '';
+    signupErrorEl.textContent = '';
+    signupFormEl.classList.add('hidden');
+    toLoginRowEl.classList.add('hidden');
+    loginFormEl.classList.remove('hidden');
+    toSignupRowEl.classList.remove('hidden');
+  }
+
+  function showAuthView() {
+    todoViewEl.classList.add('hidden');
+    authViewEl.classList.remove('hidden');
+    loginFormEl.reset();
+    signupFormEl.reset();
+    showLoginForm();
+  }
+
+  function showTodoView() {
+    authViewEl.classList.add('hidden');
+    todoViewEl.classList.remove('hidden');
+    init();
+  }
+
+  function handleSignup(e) {
+    e.preventDefault();
+
+    const username = signupUsernameEl.value.trim();
+    const password = signupPasswordEl.value;
+    const passwordConfirm = signupPasswordConfirmEl.value;
+
+    if (username === '' || password === '') {
+      signupErrorEl.textContent = '아이디와 비밀번호를 모두 입력해주세요.';
+      return;
+    }
+
+    if (password !== passwordConfirm) {
+      signupErrorEl.textContent = '비밀번호가 일치하지 않습니다.';
+      return;
+    }
+
+    const users = loadUsers();
+    if (users.some(user => user.username === username)) {
+      signupErrorEl.textContent = '이미 사용 중인 아이디입니다.';
+      return;
+    }
+
+    users.push({ username: username, password: password });
+    saveUsers(users);
+    signupFormEl.reset();
+    showLoginForm();
+    loginUsernameEl.value = username;
+    loginErrorEl.textContent = '회원가입이 완료되었습니다. 로그인해주세요.';
+    loginErrorEl.style.color = 'var(--accent)';
+  }
+
+  function handleLogin(e) {
+    e.preventDefault();
+
+    const username = loginUsernameEl.value.trim();
+    const password = loginPasswordEl.value;
+
+    const users = loadUsers();
+    const matchedUser = users.find(user => user.username === username && user.password === password);
+
+    if (!matchedUser) {
+      loginErrorEl.style.color = 'var(--danger)';
+      loginErrorEl.textContent = '아이디 또는 비밀번호가 올바르지 않습니다.';
+      return;
+    }
+
+    localStorage.setItem(SESSION_KEY, username);
+    loginFormEl.reset();
+    showTodoView();
+  }
+
+  function handleLogout() {
+    localStorage.removeItem(SESSION_KEY);
+    showAuthView();
+  }
 
   function mapRow(row) {
     return {
@@ -752,7 +982,22 @@
     render();
   }
 
-  init();
+  loginFormEl.addEventListener('submit', handleLogin);
+  signupFormEl.addEventListener('submit', handleSignup);
+  showSignupBtnEl.addEventListener('click', showSignupForm);
+  showLoginBtnEl.addEventListener('click', showLoginForm);
+  logoutBtnEl.addEventListener('click', handleLogout);
+
+  function checkSession() {
+    const currentUser = localStorage.getItem(SESSION_KEY);
+    if (currentUser) {
+      showTodoView();
+    } else {
+      showAuthView();
+    }
+  }
+
+  checkSession();
 </script>
 </body>
 </html>
