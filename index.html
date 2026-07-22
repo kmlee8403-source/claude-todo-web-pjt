@@ -532,8 +532,9 @@
   const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   const TABLE_NAME = 'todo_tbl';
 
-  // 로그인/회원가입은 아직 Supabase와 연동하지 않고 localStorage로만 관리합니다.
-  const USERS_KEY = 'todo-app-users';
+  // 로그인 세션 유지는 localStorage로 관리하되, 회원 정보(아이디/비밀번호)는
+  // Supabase user_tbl에 저장하고 RPC 함수(signup_user/login_user)를 통해서만 접근합니다.
+  // 비밀번호는 DB 안에서 bcrypt 해시로만 저장되며, 브라우저에는 절대 전달되지 않습니다.
   const SESSION_KEY = 'todo-app-current-user';
   const CATEGORIES = ['개인', '공부', '업무', '취미'];
   const CATEGORY_CLASS = {
@@ -573,28 +574,6 @@
   const showLoginBtnEl = document.getElementById('show-login-btn');
   const logoutBtnEl = document.getElementById('logout-btn');
 
-  function loadUsers() {
-    try {
-      const raw = localStorage.getItem(USERS_KEY);
-      if (!raw) {
-        return [];
-      }
-      const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed : [];
-    } catch (e) {
-      console.error('회원 목록을 불러오는 중 오류가 발생했습니다:', e);
-      return [];
-    }
-  }
-
-  function saveUsers(users) {
-    try {
-      localStorage.setItem(USERS_KEY, JSON.stringify(users));
-    } catch (e) {
-      console.error('회원 목록을 저장하는 중 오류가 발생했습니다:', e);
-    }
-  }
-
   function showSignupForm() {
     loginErrorEl.textContent = '';
     signupErrorEl.textContent = '';
@@ -627,7 +606,7 @@
     init();
   }
 
-  function handleSignup(e) {
+  async function handleSignup(e) {
     e.preventDefault();
 
     const username = signupUsernameEl.value.trim();
@@ -644,14 +623,18 @@
       return;
     }
 
-    const users = loadUsers();
-    if (users.some(user => user.username === username)) {
-      signupErrorEl.textContent = '이미 사용 중인 아이디입니다.';
+    signupErrorEl.style.color = 'var(--danger)';
+
+    const { error } = await supabaseClient.rpc('signup_user', {
+      p_username: username,
+      p_password: password
+    });
+
+    if (error) {
+      signupErrorEl.textContent = error.message;
       return;
     }
 
-    users.push({ username: username, password: password });
-    saveUsers(users);
     signupFormEl.reset();
     showLoginForm();
     loginUsernameEl.value = username;
@@ -659,18 +642,26 @@
     loginErrorEl.style.color = 'var(--accent)';
   }
 
-  function handleLogin(e) {
+  async function handleLogin(e) {
     e.preventDefault();
 
     const username = loginUsernameEl.value.trim();
     const password = loginPasswordEl.value;
 
-    const users = loadUsers();
-    const matchedUser = users.find(user => user.username === username && user.password === password);
-
-    if (!matchedUser) {
+    if (username === '' || password === '') {
       loginErrorEl.style.color = 'var(--danger)';
-      loginErrorEl.textContent = '아이디 또는 비밀번호가 올바르지 않습니다.';
+      loginErrorEl.textContent = '아이디와 비밀번호를 모두 입력해주세요.';
+      return;
+    }
+
+    const { error } = await supabaseClient.rpc('login_user', {
+      p_username: username,
+      p_password: password
+    });
+
+    if (error) {
+      loginErrorEl.style.color = 'var(--danger)';
+      loginErrorEl.textContent = error.message;
       return;
     }
 
