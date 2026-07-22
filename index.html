@@ -425,8 +425,14 @@
     <ul class="todo-list" id="todo-list"></ul>
   </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-  const STORAGE_KEY = 'todo-list-data';
+  // Supabase anon(publishable) key는 공개되어도 안전하도록 설계된 키입니다.
+  // 실제 접근 제어는 DB의 Row Level Security 정책이 담당합니다.
+  const SUPABASE_URL = 'https://khqxfcapjlzzepgecrks.supabase.co';
+  const SUPABASE_ANON_KEY = 'sb_publishable_c3nPAJzcSQUiviEWunrerg_dOZdlso-';
+  const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const TABLE_NAME = 'todo_tbl';
   const CATEGORIES = ['개인', '공부', '업무', '취미'];
   const CATEGORY_CLASS = {
     '개인': 'cat-personal',
@@ -438,7 +444,6 @@
   let todos = [];
   let editingId = null;
   let currentFilter = '전체';
-  let idSequence = 0;
 
   const inputEl = document.getElementById('todo-input');
   const addBtnEl = document.getElementById('add-btn');
@@ -449,64 +454,87 @@
   const progressTextEl = document.getElementById('progress-text');
   const progressBarFillEl = document.getElementById('progress-bar-fill');
 
-  function loadTodos() {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) {
-        return [];
-      }
-      const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed : [];
-    } catch (e) {
-      console.error('할 일 목록을 불러오는 중 오류가 발생했습니다:', e);
+  function mapRow(row) {
+    return {
+      id: row.id,
+      text: row.text,
+      category: row.category,
+      completed: row.completed,
+      createdAt: row.created_at
+    };
+  }
+
+  async function loadTodos() {
+    const { data, error } = await supabaseClient
+      .from(TABLE_NAME)
+      .select('*')
+      .order('created_at', { ascending: true });
+
+    if (error) {
+      console.error('할 일 목록을 불러오는 중 오류가 발생했습니다:', error);
+      alert('할 일 목록을 불러오지 못했습니다. 네트워크 상태를 확인해주세요.');
       return [];
     }
+
+    return data.map(mapRow);
   }
 
-  function saveTodos() {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(todos));
-    } catch (e) {
-      console.error('할 일 목록을 저장하는 중 오류가 발생했습니다:', e);
-    }
-  }
-
-  function generateId() {
-    idSequence += 1;
-    return Date.now() * 1000 + (idSequence % 1000);
-  }
-
-  function addTodo() {
+  async function addTodo() {
     const text = inputEl.value.trim();
     if (text === '') {
       return;
     }
 
-    const todo = {
-      id: generateId(),
-      text: text,
-      category: categorySelectEl.value,
-      completed: false,
-      createdAt: new Date().toISOString()
-    };
+    const { data, error } = await supabaseClient
+      .from(TABLE_NAME)
+      .insert({ text: text, category: categorySelectEl.value })
+      .select()
+      .single();
 
-    todos.push(todo);
+    if (error) {
+      console.error('할 일을 추가하는 중 오류가 발생했습니다:', error);
+      alert('할 일을 추가하지 못했습니다.');
+      return;
+    }
+
+    todos.push(mapRow(data));
     inputEl.value = '';
-    saveTodos();
     render();
     inputEl.focus();
   }
 
-  function deleteTodo(id) {
+  async function deleteTodo(id) {
+    const { error } = await supabaseClient
+      .from(TABLE_NAME)
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('할 일을 삭제하는 중 오류가 발생했습니다:', error);
+      alert('할 일을 삭제하지 못했습니다.');
+      return;
+    }
+
     todos = todos.filter(todo => todo.id !== id);
-    saveTodos();
     render();
   }
 
-  function toggleComplete(id) {
+  async function toggleComplete(id) {
     const todo = todos.find(todo => todo.id === id);
-    todo.completed = !todo.completed;
-    saveTodos();
+    const nextCompleted = !todo.completed;
+
+    const { error } = await supabaseClient
+      .from(TABLE_NAME)
+      .update({ completed: nextCompleted })
+      .eq('id', id);
+
+    if (error) {
+      console.error('할 일 상태를 변경하는 중 오류가 발생했습니다:', error);
+      alert('할 일 상태를 변경하지 못했습니다.');
+      return;
+    }
+
+    todo.completed = nextCompleted;
     render();
   }
 
@@ -520,9 +548,20 @@
     render();
   }
 
-  function saveEdit(id, newText, newCategory) {
+  async function saveEdit(id, newText, newCategory) {
     const text = newText.trim();
     if (text === '') {
+      return;
+    }
+
+    const { error } = await supabaseClient
+      .from(TABLE_NAME)
+      .update({ text: text, category: newCategory })
+      .eq('id', id);
+
+    if (error) {
+      console.error('할 일을 수정하는 중 오류가 발생했습니다:', error);
+      alert('할 일을 수정하지 못했습니다.');
       return;
     }
 
@@ -530,7 +569,6 @@
     todo.text = text;
     todo.category = newCategory;
     editingId = null;
-    saveTodos();
     render();
   }
 
@@ -708,9 +746,13 @@
     todayDateEl.textContent = formatted;
   }
 
-  renderTodayDate();
-  todos = loadTodos();
-  render();
+  async function init() {
+    renderTodayDate();
+    todos = await loadTodos();
+    render();
+  }
+
+  init();
 </script>
 </body>
 </html>
